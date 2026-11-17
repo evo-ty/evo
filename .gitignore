@@ -1,0 +1,23 @@
+# Secrets and local environment
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# Runtime databases and local user data
+storage/*.db
+storage/*.sqlite
+storage/*.sqlite3
+static/uploads/*
+!static/uploads/.gitkeep
+
+# Python artifacts
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# Runtime files
+*.log
+*.pid

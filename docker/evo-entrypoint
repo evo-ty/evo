@@ -1,0 +1,48 @@
+#!/bin/sh
+set -eu
+
+runtime="${1:-python}"
+if [ "$runtime" = "python" ]; then
+  mkdir -p /tmp/evo-packages /tmp/evo-deps
+  if ! /usr/local/bin/evo-dependency-bootstrap.py \
+      --root /workspace \
+      --venv /tmp/evo-venv \
+      --fallback-dir /tmp/evo-packages \
+      --env-file /tmp/evo-deps/deps.env \
+      --timeout 900; then
+    echo "[EVO-DEPS] Dependency installation completed with warnings; attempting to start the application." >&2
+  fi
+  if [ -f /tmp/evo-deps/deps.env ]; then
+    . /tmp/evo-deps/deps.env
+  fi
+  if [ -n "${EVO_PYTHONPATH:-}" ]; then
+    export PYTHONPATH="${EVO_PYTHONPATH}:${PYTHONPATH:-}"
+  fi
+  python_runtime="${EVO_PYTHON:-/tmp/evo-venv/bin/python}"
+  if [ ! -x "$python_runtime" ]; then
+    python_runtime="python3"
+  fi
+  startup="main.py"
+  for candidate in main.py app.py run.py bot.py server.py index.py; do
+    if [ -f "/workspace/$candidate" ]; then startup="$candidate"; break; fi
+  done
+  exec "$python_runtime" "/workspace/$startup"
+fi
+
+if [ "$runtime" = "node" ]; then
+  if [ -f /workspace/package.json ]; then
+    # Install the workspace manifest into the writable temp layer. Installing
+    # /workspace as a package alone can omit its runtime dependencies.
+    mkdir -p /tmp/evo-node /tmp/evo-node-home/npm-cache
+    export HOME=/tmp/evo-node-home
+    export npm_config_cache=/tmp/evo-node-home/npm-cache
+    cp /workspace/package.json /tmp/evo-node/package.json
+    if [ -f /workspace/package-lock.json ]; then cp /workspace/package-lock.json /tmp/evo-node/package-lock.json; fi
+    npm install --prefix /tmp/evo-node --registry=https://registry.npmjs.org/ --omit=dev --ignore-scripts --no-audit --no-fund --no-package-lock --package-lock=false
+    export NODE_PATH="/tmp/evo-node/node_modules:/workspace/node_modules"
+  fi
+  exec node /workspace/index.js
+fi
+
+echo "Unsupported runtime: $runtime" >&2
+exit 2

@@ -1,0 +1,33 @@
+# EVO defensive Apache rules; application-level guards in main.py remain authoritative.
+Options -Indexes -FollowSymLinks -Includes
+# Keep this in sync with Flask's MAX_CONTENT_LENGTH (50 MB).
+LimitRequestBody 52428800
+
+RewriteEngine On
+RewriteCond %{REQUEST_URI} (?:\.\./|%2e%2e|%00|%0d|%0a) [NC,OR]
+RewriteCond %{QUERY_STRING} (?:\.\./|%2e%2e|%00|%0d|%0a) [NC]
+RewriteRule ^ - [F,L]
+
+RewriteCond %{REQUEST_METHOD} ^(?:PUT|DELETE|PATCH|TRACE|TRACK|CONNECT|PROPFIND|PROPPATCH|MKCOL|COPY|MOVE|OPTIONS)$ [NC]
+RewriteRule ^ - [F,L]
+
+# Never expose hidden files, repository metadata, credentials, backups, or databases.
+<FilesMatch "^\.|(?:^|\.)(?:env|ini|log|conf|config|htpasswd|git|svn|sqlite|db|sql|bak|backup|old|swp|swo|lock)$">
+    Require all denied
+</FilesMatch>
+
+# Uploaded content is data only; do not allow script execution from upload directories.
+<DirectoryMatch "(^|/)static/uploads/?$">
+    Options -ExecCGI -Includes
+    <FilesMatch "\.(?:php|phtml|phar|cgi|pl|py|rb|sh|bash|js|mjs|exe|dll)$">
+        Require all denied
+    </FilesMatch>
+</DirectoryMatch>
+
+<IfModule mod_headers.c>
+    Header always set X-Content-Type-Options "nosniff"
+    Header always set X-Frame-Options "DENY"
+    Header always set Referrer-Policy "strict-origin-when-cross-origin"
+    Header always set Permissions-Policy "camera=(), microphone=(), geolocation=()"
+    Header always set Strict-Transport-Security "max-age=31536000; includeSubDomains" "expr=%{HTTPS} == 'on'"
+</IfModule>
