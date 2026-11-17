@@ -295,6 +295,8 @@ def create_app():
         except OSError:
             pass
 
+    init_db()
+
     migration_db = get_db()
     for migration_row in migration_db.execute('SELECT id, folder, public_id, server_type FROM servers').fetchall():
         public_id = str(migration_row['public_id'] or '').strip()
@@ -497,7 +499,6 @@ def create_app():
             db.commit()
         db.close()
 
-    init_db()
     socketio.init_app(app)
 
     @app.before_request
